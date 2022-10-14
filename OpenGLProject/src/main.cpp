@@ -10,8 +10,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
 int main() {
-	std::cout << "Hello, world!" << std::endl;
-
 	glm::vec4 vec(1.0f, 1.0f, 1.0f, 1.0f); // glm test
 	glm::mat4 trans = glm::mat4(1.0f); // identity matrix
 	trans = glm::translate(trans, glm::vec3(1.0f, 1.0f, 0.0f)); // translation
