@@ -1,63 +1,181 @@
+// standart
 #include <iostream>
+#include <fstream>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <locale.h>
+
+// glad и glfw
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+// glm
 #include <glm\glm.hpp>
 #include <glm\gtc\matrix_transform.hpp>
 #include <glm\gtc\type_ptr.hpp>
 
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
 
-int main() {
-	glm::vec4 vec(1.0f, 1.0f, 1.0f, 1.0f); // glm test
-	glm::mat4 trans = glm::mat4(1.0f); // identity matrix
-	trans = glm::translate(trans, glm::vec3(1.0f, 1.0f, 0.0f)); // translation
-	trans = glm::rotate(trans, glm::radians(90.0f), glm::vec3(0.0, 0.0, 1.0)); // rotation
-	trans = glm::scale(trans, glm::vec3(0.5, 0.5, 0.5)); // scaling
-	vec = trans * vec;
-	std::cout << vec.x << " " << vec.y << " " << vec.z << std::endl;
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 
+const char* vertexShaderSource = "#version 330 core\n"
+"layout (location = 0) in vec3 aPos;\n"
+"void main()\n"
+"{\n"
+"   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+"}\0";
+const char* fragmentShaderSource = "#version 330 core\n"
+"out vec4 FragColor;\n"
+"void main()\n"
+"{\n"
+"   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+"}\n\0";
+
+int main() {
+	// Русский язык в консоли
+	setlocale(LC_ALL, "Russian");
+
+	// Инициализируем GLFW
 	glfwInit();
 
-	// opengl version 3.3
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	// Версия OpenGL 3
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
+	// Не используем старый OpenGL
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL", NULL, NULL);
-	// if window not created
+	// Открыть окно и создать в нем контекст OpenGL
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "OpenGL", NULL, NULL);
+	// Если окно не создалось
 	if (window == NULL) {
-		std::cout << "Could not create window" << std::endl;
+		std::cout << "Невозможно открыть окно GLFW" << std::endl;
 		glfwTerminate();
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
 
-	// check initialize GLAD
+	// Проверка инициализации GLAD
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-		std::cout << "Failed to ininitialize GLAD" << std::endl;
+		std::cout << "Ошибка инициализации GLAD" << std::endl;
 		glfwTerminate();
 		return -1;
 	}
-
-	glViewport(0, 0, 800, 600);
-
+	glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+	// Компилирование шейдеров
+	int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+	glCompileShader(vertexShader);
+
+	// Проверка на наличие ошибок компилирования шейдера
+	int success;
+	char infoLog[512];
+	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+		std::cout << "Ошибка компиляции вершинного шейдера" << infoLog << std::endl;
+	}
+
+	// Фрагментный шейдер
+	int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+	glCompileShader(fragmentShader);
+
+	// Проверка на наличие ошибок компилирования шейдера
+	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+		std::cout << "Ошибка компиляции фрагментного шейдера" << infoLog << std::endl;
+	}
+
+	// Связывание шейдеров
+	int shaderProgram = glCreateProgram();
+	glAttachShader(shaderProgram, vertexShader);
+	glAttachShader(shaderProgram, fragmentShader);
+	glLinkProgram(shaderProgram);
+
+	// Проверка на наличие ошибок связывания шейдеров
+	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+		std::cout << "Ошибка связывания шейдеров" << infoLog << std::endl;
+	}
+	glDeleteShader(vertexShader);
+	glDeleteShader(fragmentShader);
+
+	// Указывание вершин и настройка вершинных атрибутов
+	float vertices[] = {
+		 0.5f,  0.5f, 0.0f,  // верхняя правая
+		 0.5f, -0.5f, 0.0f,  // нижняя правая
+		-0.5f, -0.5f, 0.0f,  // нижняя левая
+		-0.5f,  0.5f, 0.0f   // верхняя левая
+	};
+	unsigned int indices[] = { 
+	   0, 1, 3,  // первый треугольник
+	   1, 2, 3   // второй треугольник
+	};
+	unsigned int VBO, VAO, EBO;
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+
+	// Сначала связываем объект вершинного массива, затем связываем и устанавливаем вершинный буфер(ы), и затем конфигурируем вершинный атрибут(ы)
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	// Обратите внимание, что данное действие разрешено, вызов glVertexAttribPointer() зарегистрировал VBO как привязанный вершинный буферный объект для вершинного атрибута, так что после этого мы можем спокойно выполнить отвязку
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// помните: не отвязывайте EBO, пока VАО активен, поскольку связанного объект буфера элемента хранится в VАО; сохраняйте привязку EBO.
+	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	// Вы можете отменить привязку VАО после этого, чтобы другие вызовы VАО случайно не изменили этот VAO (но подобное довольно редко случается).
+	// Модификация других VAO требует вызов glBindVertexArray(), поэтому мы обычно не снимаем привязку VAO (или VBO), когда это не требуется напрямую
+	glBindVertexArray(0);
+
+
+	// Раскомментируйте следующую строку для отрисовки полигонов в режиме каркаса
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	// Главный цикл
 	while (!glfwWindowShouldClose(window)) {
-		// process inpot
+		// Обработка ввода
 		processInput(window);
 
-		// render
+		// Рендеринг
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		// send new frame to window
+		// Рисуем наш первый треугольник
+		glUseProgram(shaderProgram);
+		glBindVertexArray(VAO); // поскольку у нас есть только один VАО, то нет необходимости связывать его каждый раз, но мы сделаем это, чтобы всё было немного более организованно
+		// glDrawArrays(GL_TRIANGLES, 0, 6);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+		// Обмен и сброс буферов
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &EBO);
 
 	glfwTerminate();
 	return 0;
@@ -70,5 +188,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
 void processInput(GLFWwindow* window) {
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, true);
+		std::cout << "Окно закрыто [ESCAPE]" << std::endl;
 	}
 }
+
